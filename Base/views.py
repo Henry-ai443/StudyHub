@@ -6,8 +6,16 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, Http404
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from .forms import CustomUserCreationForm  # adjust import if needed
 # Create your views here.
+
+from django.contrib.auth import authenticate, login
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from Base.models import User  # your custom user model
 
 def loginPage(request):
     page = 'login'
@@ -15,35 +23,43 @@ def loginPage(request):
         return redirect('home')
     
     if request.method == 'POST':
-        username = request.POST.get('username')
+        email = request.POST.get('email')  # changed from username to email
         password = request.POST.get('password')
-        try:
-            user = User.objects.get(username=username)
-        except:
-            messages.error(request, 'User does not exist')
 
-        user = authenticate(request, username=username, password=password)
-        if user :
+        # Try to get user by email to check existence
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            messages.error(request, 'User does not exist')
+            return render(request, 'Base/login_register.html', {'page': page})
+
+        # Authenticate with email as username field
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
             login(request, user)
             return redirect('home')
-    context = {'page': page}
-    return render(request, 'Base/login_register.html', context)
+        else:
+            messages.error(request, 'Email or password is incorrect')
+    
+    return render(request, 'Base/login_register.html', {'page': page})
 
 def logout_user(request):
     logout(request)
     return redirect('home')
 
+
 def registerUser(request):
-    form = UserCreationForm()
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user.save()
+            user = form.save()
             login(request, user)
-            return redirect('home')
+            return redirect('home')  # change 'home' to your desired URL name
         else:
-            messages.error(request, 'An error occured during registration.')
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = CustomUserCreationForm()
+    
     context = {'form': form}
     return render(request, 'Base/login_register.html', context)
 
